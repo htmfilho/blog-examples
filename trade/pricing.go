@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+	"time"
+)
 
 // Supported exchanges
 const (
@@ -46,16 +50,21 @@ func main() {
 		},
 	}
 
-	stocks = getPrices(stocks)
+	stocks = getPricesInSequence(stocks)
 
 	for _, stock := range stocks {
 		fmt.Printf("%s: %d\n", stock.Ticker, stock.Price)
 	}
 }
 
-func getPrices(stocks []*Stock) []*Stock {
+func getPricesInSequence(stocks []*Stock) []*Stock {
 	exchangeFactory := prepareExchangeStrategies(stocks)
-	return searchStocks(exchangeFactory, stocks)
+	return searchStocksInSequence(exchangeFactory, stocks)
+}
+
+func getPricesInParallel(stocks []*Stock) []*Stock {
+	exchangeFactory := prepareExchangeStrategies(stocks)
+	return searchStocksInParallel(exchangeFactory, stocks)
 }
 
 func prepareExchangeStrategies(stocks []*Stock) *ExchangeFactory {
@@ -67,13 +76,34 @@ func prepareExchangeStrategies(stocks []*Stock) *ExchangeFactory {
 	return exchangeFactory
 }
 
-func searchStocks(exchangeFactory *ExchangeFactory, stocks []*Stock) []*Stock {
+func searchStocksInSequence(exchangeFactory *ExchangeFactory, stocks []*Stock) []*Stock {
 	for _, exchange := range exchangeFactory.exchanges {
 		err := exchange.search()
 		if err != nil {
 			fmt.Printf("Couldn't fetch prices from %s.\n", exchange.getName())
 		}
 	}
+	return stocks
+}
+
+func searchStocksInParallel(exchangeFactory *ExchangeFactory, stocks []*Stock) []*Stock {
+	errors := make(chan error, 2)
+	var wg sync.WaitGroup
+	for _, exchange := range exchangeFactory.exchanges {
+		wg.Add(1)
+		go func(exchange Pricing) {
+			defer wg.Done()
+			err := exchange.search()
+			if err != nil {
+				errors <- err
+				fmt.Printf("Couldn't fetch prices from %s.\n", exchange.getName())
+				return
+			}
+		}(exchange)
+	}
+	wg.Wait()
+	close(errors)
+
 	return stocks
 }
 
@@ -111,6 +141,7 @@ func (np *NasdaqPricing) addStock(stock *Stock) {
 
 func (np *NasdaqPricing) search() error {
 	if len(np.stocks) > 0 {
+		time.Sleep(time.Millisecond)
 		np.stocks[0].Price = 2344500
 		np.stocks[1].Price = 5439990
 	}
@@ -133,6 +164,7 @@ func (nyp *NYSEPricing) addStock(stock *Stock) {
 
 func (nyp *NYSEPricing) search() error {
 	if len(nyp.stocks) > 0 {
+		time.Sleep(time.Millisecond)
 		nyp.stocks[0].Price = 344500
 	}
 
@@ -154,6 +186,7 @@ func (tp *TsxPricing) addStock(stock *Stock) {
 
 func (tp *TsxPricing) search() error {
 	if len(tp.stocks) > 0 {
+		time.Sleep(time.Millisecond)
 		tp.stocks[0].Price = 8344500
 		tp.stocks[1].Price = 239990
 		tp.stocks[2].Price = 39990
