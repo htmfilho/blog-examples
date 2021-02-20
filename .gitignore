@@ -2,3 +2,9 @@ trade/pricing
 
 caching/caching
 caching/go.sum
+
+azure/function/buyersmarket
+
+# IDEs
+.idea/
+.vscode/
