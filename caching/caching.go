@@ -24,8 +24,7 @@ type RedisCache struct {
 
 // Put adds an entry in the cache.
 func (rc *RedisCache) Put(key string, value interface{}) {
-	_, err := rc.conn.Get().Do("SET", key, value)
-	if err != nil {
+	if _, err := rc.conn.Get().Do("SET", key, value); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -34,19 +33,12 @@ func (rc *RedisCache) Put(key string, value interface{}) {
 func (rc *RedisCache) PutAll(entries map[string]interface{}) {
 	c := rc.conn.Get()
 	for k, v := range entries {
-		err := c.Send("SET", k, v)
-		if err != nil {
+		if err := c.Send("SET", k, v); err != nil {
 			fmt.Println(err)
 		}
 	}
 
-	err := c.Flush()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	_, err = c.Receive()
-	if err != nil {
+	if err := c.Flush(); err != nil {
 		fmt.Println(err)
 	}
 }
@@ -71,15 +63,15 @@ func (rc *RedisCache) GetAll(keys []string) map[string]interface{} {
 	}
 
 	c := rc.conn.Get()
-
-	values, err := redis.Strings(c.Do("MGET", intKeys...))
-
 	entries := make(map[string]interface{})
+	values, err := redis.Strings(c.Do("MGET", intKeys...))
+	if err != nil {
+		fmt.Println(err)
+		return entries
+	}
+
 	for i, k := range keys {
 		entries[k] = values[i]
-		if err != nil {
-			fmt.Println(err)
-		}
 	}
 
 	return entries
@@ -87,16 +79,14 @@ func (rc *RedisCache) GetAll(keys []string) map[string]interface{} {
 
 // Clean cleans a entry from the cache.
 func (rc *RedisCache) Clean(key string) {
-	_, err := rc.conn.Get().Do("DEL", key)
-	if err != nil {
+	if _, err := rc.conn.Get().Do("DEL", key); err != nil {
 		fmt.Println(err)
 	}
 }
 
 // CleanAll cleans the entire cache.
 func (rc *RedisCache) CleanAll() {
-	_, err := rc.conn.Get().Do("FLUSHDB")
-	if err != nil {
+	if _, err := rc.conn.Get().Do("FLUSHDB"); err != nil {
 		fmt.Println(err)
 	}
 }
