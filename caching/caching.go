@@ -34,10 +34,21 @@ func (rc *RedisCache) Put(key string, value interface{}) {
 func (rc *RedisCache) PutAll(entries map[string]interface{}) {
 	c := rc.conn.Get()
 	for k, v := range entries {
-		c.Send("SET", k, v)
+		err := c.Send("SET", k, v)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
-	c.Flush()
-	c.Receive()
+
+	err := c.Flush()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	_, err = c.Receive()
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 // Get gets an entry from the cache.
@@ -63,8 +74,6 @@ func (rc *RedisCache) GetAll(keys []string) map[string]interface{} {
 
 	values, err := redis.Strings(c.Do("MGET", intKeys...))
 
-	time.Sleep(time.Second)
-
 	entries := make(map[string]interface{})
 	for i, k := range keys {
 		entries[k] = values[i]
@@ -78,12 +87,18 @@ func (rc *RedisCache) GetAll(keys []string) map[string]interface{} {
 
 // Clean cleans a entry from the cache.
 func (rc *RedisCache) Clean(key string) {
-
+	_, err := rc.conn.Get().Do("DEL", key)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 // CleanAll cleans the entire cache.
 func (rc *RedisCache) CleanAll() {
-
+	_, err := rc.conn.Get().Do("FLUSHDB")
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 // GetCachingMechanism initializes and returns a caching mechanism.
@@ -137,6 +152,18 @@ func main() {
 
 	entries = cache.GetAll(keys)
 
+	for k, v := range entries {
+		fmt.Print(k)
+		fmt.Print(" = ")
+		fmt.Println(v)
+	}
+
+	fmt.Println(cache.Get("single"))
+	cache.Clean("single")
+	fmt.Println(cache.Get("single"))
+
+	cache.CleanAll()
+	entries = cache.GetAll(keys)
 	for k, v := range entries {
 		fmt.Print(k)
 		fmt.Print(" = ")
