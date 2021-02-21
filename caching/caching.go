@@ -31,8 +31,13 @@ func (rc *RedisCache) Put(key string, value interface{}) {
 }
 
 // PutAll adds the entries of a map in the cache.
-func (rc *RedisCache) PutAll(map[string]interface{}) {
-
+func (rc *RedisCache) PutAll(entries map[string]interface{}) {
+	c := rc.conn.Get()
+	for k, v := range entries {
+		c.Send("SET", k, v)
+	}
+	c.Flush()
+	c.Receive()
 }
 
 // Get gets an entry from the cache.
@@ -47,7 +52,28 @@ func (rc *RedisCache) Get(key string) interface{} {
 
 // GetAll gets all the entries of a map from the cache.
 func (rc *RedisCache) GetAll(keys []string) map[string]interface{} {
-	return nil
+	// Converts []string to []interface{} since Go doesn't do it explicitly
+	// because it doesn't want the syntax to hide a O(n) operation.
+	intKeys := make([]interface{}, len(keys))
+	for i, _ := range keys {
+		intKeys[i] = keys[i]
+	}
+
+	c := rc.conn.Get()
+
+	values, err := redis.Strings(c.Do("MGET", intKeys...))
+
+	time.Sleep(time.Second)
+
+	entries := make(map[string]interface{})
+	for i, k := range keys {
+		entries[k] = values[i]
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
+	return entries
 }
 
 // Clean cleans a entry from the cache.
@@ -98,7 +124,22 @@ func GetCachingMechanism() Cache {
 func main() {
 	cache := GetCachingMechanism()
 
-	cache.Put("test", "data")
+	cache.Put("single", "Single Record")
 
-	fmt.Println(cache.Get("test"))
+	fmt.Println(cache.Get("single"))
+
+	keys := []string{"multiple1", "multiple2", "multiple3"}
+	entries := make(map[string]interface{})
+	entries[keys[0]] = "Multiple 1"
+	entries[keys[1]] = "Multiple 2"
+	entries[keys[2]] = "Multiple 3"
+	cache.PutAll(entries)
+
+	entries = cache.GetAll(keys)
+
+	for k, v := range entries {
+		fmt.Print(k)
+		fmt.Print(" = ")
+		fmt.Println(v)
+	}
 }
