@@ -1,10 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"time"
-
-	"github.com/gomodule/redigo/redis"
+	"github.com/go-redis/redis/v8"
 )
 
 // Cache is the adapter contract between the application and the cache library.
@@ -19,33 +18,42 @@ type Cache interface {
 
 // RedisCache holds a Redis connection pool.
 type RedisCache struct {
-	conn *redis.Pool
+	conn *redis.Client
+	ctx  context.Context
+}
+
+// GetCachingMechanism initializes and returns a caching mechanism.
+func GetCachingMechanism() Cache {
+	cch := &RedisCache{
+		conn: redis.NewClient(&redis.Options{
+			Addr:     "localhost:6379",
+			Password: "",
+			DB:       0,
+		}),
+	}
+
+	cch.ctx = context.Background()
+
+	return cch
 }
 
 // Put adds an entry in the cache.
 func (rc *RedisCache) Put(key string, value interface{}) {
-	if _, err := rc.conn.Get().Do("SET", key, value); err != nil {
+	if err := rc.conn.Set(rc.ctx, key, value, 0); err != nil {
 		fmt.Println(err)
 	}
 }
 
 // PutAll adds the entries of a map in the cache.
 func (rc *RedisCache) PutAll(entries map[string]interface{}) {
-	c := rc.conn.Get()
 	for k, v := range entries {
-		if err := c.Send("SET", k, v); err != nil {
-			fmt.Println(err)
-		}
-	}
-
-	if err := c.Flush(); err != nil {
-		fmt.Println(err)
+		rc.Put(k, v)
 	}
 }
 
 // Get gets an entry from the cache.
 func (rc *RedisCache) Get(key string) interface{} {
-	value, err := redis.String(rc.conn.Get().Do("GET", key))
+	value, err := rc.conn.Get(rc.ctx, key).Result()
 	if err != nil {
 		fmt.Println(err)
 		return ""
@@ -55,23 +63,9 @@ func (rc *RedisCache) Get(key string) interface{} {
 
 // GetAll gets all the entries of a map from the cache.
 func (rc *RedisCache) GetAll(keys []string) map[string]interface{} {
-	// Converts []string to []interface{} since Go doesn't do it explicitly
-	// because it doesn't want the syntax to hide a O(n) operation.
-	intKeys := make([]interface{}, len(keys))
-	for i, _ := range keys {
-		intKeys[i] = keys[i]
-	}
-
-	c := rc.conn.Get()
 	entries := make(map[string]interface{})
-	values, err := redis.Strings(c.Do("MGET", intKeys...))
-	if err != nil {
-		fmt.Println(err)
-		return entries
-	}
-
-	for i, k := range keys {
-		entries[k] = values[i]
+	for _, k := range keys {
+		entries[k] = rc.Get(k)
 	}
 
 	return entries
@@ -79,51 +73,14 @@ func (rc *RedisCache) GetAll(keys []string) map[string]interface{} {
 
 // Clean cleans a entry from the cache.
 func (rc *RedisCache) Clean(key string) {
-	if _, err := rc.conn.Get().Do("DEL", key); err != nil {
+	if err := rc.conn.Del(rc.ctx, key); err != nil {
 		fmt.Println(err)
 	}
 }
 
 // CleanAll cleans the entire cache.
 func (rc *RedisCache) CleanAll() {
-	if _, err := rc.conn.Get().Do("FLUSHDB"); err != nil {
-		fmt.Println(err)
-	}
-}
-
-// GetCachingMechanism initializes and returns a caching mechanism.
-func GetCachingMechanism() Cache {
-	cache := &RedisCache{
-		conn: &redis.Pool{
-			MaxIdle:     7,
-			MaxActive:   30,
-			IdleTimeout: 60 * time.Second,
-			Dial: func() (redis.Conn, error) {
-				conn, err := redis.Dial("tcp", "localhost:6379")
-				if err != nil {
-					fmt.Println(err)
-					return nil, err
-				}
-
-				if _, err := conn.Do("SELECT", 0); err != nil {
-					conn.Close()
-					fmt.Println(err)
-					return nil, err
-				}
-
-				return conn, nil
-			},
-			TestOnBorrow: func(conn redis.Conn, t time.Time) error {
-				if time.Since(t) < time.Minute {
-					return nil
-				}
-				_, err := conn.Do("PING")
-				fmt.Println(err)
-				return err
-			},
-		},
-	}
-	return cache
+	rc.conn.FlushDB(rc.ctx)
 }
 
 func main() {
