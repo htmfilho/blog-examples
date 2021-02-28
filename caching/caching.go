@@ -125,38 +125,3 @@ func GetCachingMechanism() Cache {
 	}
 	return cache
 }
-
-func main() {
-	cache := GetCachingMechanism()
-
-	cache.Put("single", "Single Record")
-
-	fmt.Println(cache.Get("single"))
-
-	keys := []string{"multiple1", "multiple2", "multiple3"}
-	entries := make(map[string]interface{})
-	entries[keys[0]] = "Multiple 1"
-	entries[keys[1]] = "Multiple 2"
-	entries[keys[2]] = "Multiple 3"
-	cache.PutAll(entries)
-
-	entries = cache.GetAll(keys)
-
-	for k, v := range entries {
-		fmt.Print(k)
-		fmt.Print(" = ")
-		fmt.Println(v)
-	}
-
-	fmt.Println(cache.Get("single"))
-	cache.Clean("single")
-	fmt.Println(cache.Get("single"))
-
-	cache.CleanAll()
-	entries = cache.GetAll(keys)
-	for k, v := range entries {
-		fmt.Print(k)
-		fmt.Print(" = ")
-		fmt.Println(v)
-	}
-}
