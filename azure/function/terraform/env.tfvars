@@ -1,0 +1,5 @@
+resource_group_name   = "buyermarket"
+location              = "eastus"
+storage_account_name  = "buyersmarketstore"
+app_service_plan_name = "buyersmarketasp"
+function_name         = "buyersmarketfunction"
