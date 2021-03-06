@@ -32,8 +32,8 @@ resource "azurerm_app_service_plan" "asp" {
   reserved            = true
 
   sku {
-    size = "Standard"
-    tier = "S1"
+    size = "S1"
+    tier = "Standard"
   }
 }
 
