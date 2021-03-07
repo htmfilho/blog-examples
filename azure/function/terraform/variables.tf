@@ -19,6 +19,10 @@ variable "app_service_plan_name" {
   type = string
 }
 
+variable "app_insights_name" {
+  description = "Name of the application insights"
+}
+
 variable "function_name" {
   description = "Name of the function"
   type = string
