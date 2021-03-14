@@ -11,5 +11,5 @@ func (pi *PathIndexer) receive(path, event string) {
 type PathFileMD5 struct{}
 
 func (pfm *PathFileMD5) receive(path, event string) {
-	fmt.Printf("Syncing: %v, %v\n", path, event)
+	fmt.Printf("Checksuming: %v, %v\n", path, event)
 }
