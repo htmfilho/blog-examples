@@ -11,10 +11,11 @@ type Publisher interface {
 	register(subscriber *Subscriber)
 	unregister(subscriber *Subscriber)
 	notify(path, event string)
+	observe()
 }
 
 type Subscriber interface {
-	Receive(path, event string)
+	receive(path, event string)
 }
 
 // PathWatcher observes changes in the file system and works as a Publisher for
@@ -22,16 +23,44 @@ type Subscriber interface {
 type PathWatcher struct {
 	subscribers []*Subscriber
 	watcher     fsnotify.Watcher
+	rootPath    string
 }
 
-func (pw *PathWatcher) observePath(path string) {
+// register subscribers to the publisher
+func (pw *PathWatcher) register(subscriber *Subscriber) {
+	pw.subscribers = append(pw.subscribers, subscriber)
+}
+
+// unregister subscribers from the publisher
+func (pw *PathWatcher) unregister(subscriber *Subscriber) {
+	length := len(pw.subscribers)
+
+	for i, sub := range pw.subscribers {
+		if sub == subscriber {
+			pw.subscribers[i] = pw.subscribers[length-1]
+			pw.subscribers = pw.subscribers[:length-1]
+			break
+		}
+	}
+}
+
+// notify subscribers that a event has happened, passing the path and the type
+// of event as message.
+func (pw *PathWatcher) notify(path, event string) {
+	for _, sub := range pw.subscribers {
+		(*sub).receive(path, event)
+	}
+}
+
+// observe changes to the file system using the fsnotify library
+func (pw *PathWatcher) observe() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		fmt.Println("Error", err)
 	}
 	defer watcher.Close()
 
-	if err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(pw.rootPath, func(path string, info os.FileInfo, err error) error {
 		if info.Mode().IsDir() {
 			return watcher.Add(path)
 		}
@@ -57,30 +86,10 @@ func (pw *PathWatcher) observePath(path string) {
 	<-done
 }
 
-func (pw *PathWatcher) register(subscriber *Subscriber) {
-	pw.subscribers = append(pw.subscribers, subscriber)
-}
-
-func (pw *PathWatcher) unregister(subscriber *Subscriber) {
-	length := len(pw.subscribers)
-
-	for i, sub := range pw.subscribers {
-		if sub == subscriber {
-			pw.subscribers[i] = pw.subscribers[length-1]
-			pw.subscribers = pw.subscribers[:length-1]
-			break
-		}
-	}
-}
-
-func (pw *PathWatcher) notify(path, event string) {
-	for _, sub := range pw.subscribers {
-		(*sub).Receive(path, event)
-	}
-}
-
 func main() {
-	pathWatcher := PathWatcher{}
+	var pathWatcher Publisher = &PathWatcher{
+		rootPath: "/home/username/liftbox",
+	}
 
 	var pathIndexer Subscriber = &PathIndexer{}
 	pathWatcher.register(&pathIndexer)
@@ -88,5 +97,5 @@ func main() {
 	var pathFileMD5 Subscriber = &PathFileMD5{}
 	pathWatcher.register(&pathFileMD5)
 
-	pathWatcher.observePath("/home/htmfilho/liftbox")
+	pathWatcher.observe()
 }
