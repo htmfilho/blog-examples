@@ -1,0 +1,6 @@
+terraform/.terraform/
+
+.terraform.lock.hcl
+state-imported.txt
+terraform.tfstate
+terraform.tfstate.backup
