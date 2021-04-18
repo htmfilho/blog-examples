@@ -1,10 +1,19 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
+)
+
+var configuration *viper.Viper
+
+var (
+	// flag name, default value in case the flag is not used and documentation
+	flgConfigPath = flag.String("cfg", "./config.toml", "Path to configuration file")
 )
 
 type Publisher interface {
@@ -86,9 +95,43 @@ func (pw *PathWatcher) observe() {
 	<-done
 }
 
+func bindEnvironmentVariables(conf *viper.Viper) {
+	_ = conf.BindEnv("observer.rootpath", "ROOTPATH")
+}
+
+func initConfiguration(conf *viper.Viper, filePath string) (*viper.Viper, error) {
+	conf = viper.New()
+	conf.SetConfigFile(filePath)
+
+	conf.WatchConfig()
+	conf.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Printf("Config file changed: %v\n", e.Name)
+	})
+
+	bindEnvironmentVariables(conf)
+
+	if err := conf.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("config file was found but another error ocurred: %v", err)
+	}
+
+	return conf, nil
+}
+
 func main() {
+	configuration, err := initConfiguration(configuration, *flgConfigPath)
+	if err != nil {
+		fmt.Printf("Error initializing configuration: %v", err)
+	}
+
+	rootPath := configuration.GetString("observer.rootpath")
+	fmt.Println(rootPath)
+
 	var pathWatcher Publisher = &PathWatcher{
-		rootPath: "/home/username/liftbox",
+		rootPath: rootPath,
 	}
 
 	var pathIndexer Subscriber = &PathIndexer{}
