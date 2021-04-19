@@ -96,7 +96,7 @@ func (pw *PathWatcher) observe() {
 }
 
 func bindEnvironmentVariables(conf *viper.Viper) {
-	_ = conf.BindEnv("observer.rootpath", "ROOTPATH")
+	_ = conf.BindEnv("observer.rootpath", "LIFTBOX_ROOTPATH")
 }
 
 func initConfiguration(conf *viper.Viper, filePath string) (*viper.Viper, error) {
