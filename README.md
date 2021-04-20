@@ -9,6 +9,7 @@ Full examples of code explained in my [blog](https://www.hildeberto.com).
 
 * Azure Storage [Liftbox](https://github.com/htmfilho/blog-examples/tree/main/azure/storage):
   - [Reacting to File Changes Using the Observer Design Pattern in Go](https://www.hildeberto.com/2021/03/observer-design-pattern-golang.html)
+  - [Making a Configurable Go App](https://www.hildeberto.com/2021/04/configurable-go-app.html)
 
 * [Caching](https://github.com/htmfilho/blog-examples/tree/main/caching)
   - [Applying The Adapter Design Pattern To Decouple Libraries From Go Apps](https://www.hildeberto.com/2021/02/adapter-design-pattern-golang.html)
